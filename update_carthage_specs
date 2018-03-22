@@ -1,0 +1,40 @@
+#!/usr/bin/env ruby
+
+require 'Octokit'
+require 'json'
+
+class CarthageSpecUpdater
+  def initialize(config)
+    @config = config
+  end
+
+  def import
+    client = Octokit::Client.new(per_page: 100)
+
+    @config.each do |repo, file_path|
+
+      releases = client.releases(repo)
+
+      spec = releases.reduce({}) do |collection, release|
+        tag = release[:tag_name]
+        asset = release[:assets].first
+        url = asset && asset[:browser_download_url]
+        if tag && url
+          collection[tag] = url
+        end
+        collection
+      end
+
+
+      File.open(file_path, 'w') {|f| f.puts(spec.to_json) }
+    end
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  config = {
+    "Appboy/appboy-ios-sdk" => "CarthageSpecs/AppboyFramework.json",
+    "mparticle-integrations/mparticle-apple-integration-appboy" => "CarthageSpecs/mParticle-Appboy.json"
+  }
+  CarthageSpecUpdater.new(config).import
+end
